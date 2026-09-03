@@ -1,0 +1,6 @@
+{
+  "name": "LifeOS",
+  "description": "Your Private Life Management App: Notes, Tasks, Habits, Expenses, Diary, Memories, Timeline & AI",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

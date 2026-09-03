@@ -1,0 +1,47 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Outer interconnected glow ring -->
+    <path
+        android:pathData="M54,28 A26,26 0 1,1 53.99,28"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round">
+        <aapt:attr name="android:strokeColor">
+            <gradient
+                android:angle="45"
+                android:endColor="#38BDF8"
+                android:startColor="#818CF8"
+                android:type="linear" />
+        </aapt:attr>
+    </path>
+    <!-- Central LifeOS Spark / Compass Core -->
+    <path android:pathData="M54,34 L58.5,49.5 L74,54 L58.5,58.5 L54,74 L49.5,58.5 L34,54 L49.5,49.5 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:angle="90"
+                android:endColor="#FFFFFF"
+                android:startColor="#38BDF8"
+                android:type="linear" />
+        </aapt:attr>
+    </path>
+    <!-- Inner faceted core -->
+    <path
+        android:pathData="M54,44 L57,51 L64,54 L57,57 L54,64 L51,57 L44,54 L51,51 Z"
+        android:fillColor="#E0E7FF" />
+    <!-- Orbiting nodes -->
+    <path
+        android:pathData="M54,28m-4,0a4,4 0 1,0 8,0a4,4 0 1,0 -8,0"
+        android:fillColor="#38BDF8" />
+    <path
+        android:pathData="M80,54m-3.5,0a3.5,3.5 0 1,0 7,0a3.5,3.5 0 1,0 -7,0"
+        android:fillColor="#A78BFA" />
+    <path
+        android:pathData="M54,80m-4,0a4,4 0 1,0 8,0a4,4 0 1,0 -8,0"
+        android:fillColor="#F472B6" />
+    <path
+        android:pathData="M28,54m-3.5,0a3.5,3.5 0 1,0 7,0a3.5,3.5 0 1,0 -7,0"
+        android:fillColor="#34D399" />
+</vector>
