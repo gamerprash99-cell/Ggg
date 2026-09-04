@@ -108,6 +108,7 @@ class LifeOSRepository(private val database: AppDatabase) {
     fun getAllTasks(): Flow<List<TaskEntity>> = taskDao.getAllTasks()
     fun getTasksForToday(): Flow<List<TaskEntity>> = taskDao.getTasksForDate(getTodayDate())
     fun getPendingTasks(): Flow<List<TaskEntity>> = taskDao.getPendingTasks()
+    suspend fun getTaskById(id: Long): TaskEntity? = taskDao.getTaskById(id)
 
     suspend fun addTask(
         title: String,
@@ -126,6 +127,10 @@ class LifeOSRepository(private val database: AppDatabase) {
             category = category
         )
         return taskDao.insertTask(task)
+    }
+
+    suspend fun updateTask(task: TaskEntity) {
+        taskDao.updateTask(task)
     }
 
     suspend fun toggleTaskCompletion(task: TaskEntity) {
@@ -156,13 +161,16 @@ class LifeOSRepository(private val database: AppDatabase) {
     fun getAllHabits(): Flow<List<HabitEntity>> = habitDao.getAllHabits()
     fun getHabitLogsForToday(): Flow<List<HabitLogEntity>> = habitLogDao.getLogsForDate(getTodayDate())
     fun getAllHabitLogs(): Flow<List<HabitLogEntity>> = habitLogDao.getAllLogs()
+    suspend fun getHabitById(id: Long): HabitEntity? = habitDao.getHabitById(id)
 
     suspend fun addHabit(
         title: String,
         icon: String = "🔥",
         category: String = "Daily",
         frequency: String = "Daily",
-        targetDays: Int = 7
+        targetDays: Int = 7,
+        reminderTime: String = "",
+        reminderDays: String = "Every day"
     ): Long {
         return habitDao.insertHabit(
             HabitEntity(
@@ -170,32 +178,112 @@ class LifeOSRepository(private val database: AppDatabase) {
                 icon = icon,
                 category = category,
                 frequency = frequency,
-                targetDaysPerWeek = targetDays
+                targetDaysPerWeek = targetDays,
+                reminderTime = reminderTime,
+                reminderDays = reminderDays
             )
         )
+    }
+
+    suspend fun updateHabit(habit: HabitEntity) {
+        habitDao.updateHabit(habit)
     }
 
     suspend fun toggleHabitForDate(habit: HabitEntity, date: String = getTodayDate()) {
         val existing = habitLogDao.getLog(habit.id, date)
         if (existing != null) {
             habitLogDao.deleteLog(habit.id, date)
-            val newStreak = (habit.currentStreak - 1).coerceAtLeast(0)
-            habitDao.updateHabit(habit.copy(currentStreak = newStreak))
         } else {
             habitLogDao.insertLog(HabitLogEntity(habitId = habit.id, date = date))
-            val newStreak = habit.currentStreak + 1
-            val best = maxOf(habit.bestStreak, newStreak)
-            habitDao.updateHabit(habit.copy(currentStreak = newStreak, bestStreak = best))
             lifeEventDao.insertEvent(
                 LifeEventEntity(
                     date = date,
                     type = LifeEventType.HABIT_COMPLETED,
                     title = "${habit.icon} Habit: ${habit.title}",
-                    description = "Streak: $newStreak days",
+                    description = "Completed on $date",
                     sourceId = habit.id
                 )
             )
         }
+        recalculateAndSaveStreaks(habit.id)
+    }
+
+    suspend fun recalculateAndSaveStreaks(habitId: Long) {
+        val habit = habitDao.getHabitById(habitId) ?: return
+        val logs = habitLogDao.getAllLogs().first().filter { it.habitId == habitId }
+        val (currentStreak, bestStreak) = calculateStreaksFromLogs(logs.map { it.date })
+        habitDao.updateHabit(
+            habit.copy(
+                currentStreak = currentStreak,
+                bestStreak = maxOf(habit.bestStreak, bestStreak)
+            )
+        )
+    }
+
+    fun calculateStreaksFromLogs(completedDateStrings: List<String>): Pair<Int, Int> {
+        if (completedDateStrings.isEmpty()) return Pair(0, 0)
+        val format = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        val dateSet = completedDateStrings.toSet()
+
+        // Calculate current streak
+        val cal = java.util.Calendar.getInstance()
+        val todayStr = format.format(cal.time)
+        cal.add(java.util.Calendar.DAY_OF_YEAR, -1)
+        val yesterdayStr = format.format(cal.time)
+
+        var currentStreak = 0
+        val checkCal = java.util.Calendar.getInstance()
+
+        if (dateSet.contains(todayStr)) {
+            // Started today
+            while (true) {
+                val dStr = format.format(checkCal.time)
+                if (dateSet.contains(dStr)) {
+                    currentStreak++
+                    checkCal.add(java.util.Calendar.DAY_OF_YEAR, -1)
+                } else {
+                    break
+                }
+            }
+        } else if (dateSet.contains(yesterdayStr)) {
+            // Still active from yesterday
+            checkCal.add(java.util.Calendar.DAY_OF_YEAR, -1)
+            while (true) {
+                val dStr = format.format(checkCal.time)
+                if (dateSet.contains(dStr)) {
+                    currentStreak++
+                    checkCal.add(java.util.Calendar.DAY_OF_YEAR, -1)
+                } else {
+                    break
+                }
+            }
+        }
+
+        // Calculate all-time best streak
+        val sortedDates = completedDateStrings.distinct().sorted()
+        var bestStreak = 0
+        var tempStreak = 0
+        var prevDate: Date? = null
+
+        for (dStr in sortedDates) {
+            val d = try { format.parse(dStr) } catch (e: Exception) { null } ?: continue
+            if (prevDate == null) {
+                tempStreak = 1
+            } else {
+                val diffDays = ((d.time - prevDate.time) / (1000 * 60 * 60 * 24)).toInt()
+                if (diffDays == 1) {
+                    tempStreak++
+                } else if (diffDays > 1) {
+                    tempStreak = 1
+                }
+            }
+            prevDate = d
+            if (tempStreak > bestStreak) {
+                bestStreak = tempStreak
+            }
+        }
+
+        return Pair(currentStreak, maxOf(bestStreak, currentStreak))
     }
 
     suspend fun deleteHabit(habit: HabitEntity) {
@@ -205,6 +293,7 @@ class LifeOSRepository(private val database: AppDatabase) {
     // --- EXPENSES ---
     fun getAllExpenses(): Flow<List<ExpenseEntity>> = expenseDao.getAllExpenses()
     fun getExpensesForToday(): Flow<List<ExpenseEntity>> = expenseDao.getExpensesForDate(getTodayDate())
+    suspend fun getExpenseById(id: Long): ExpenseEntity? = expenseDao.getExpenseById(id)
 
     suspend fun addExpense(
         amount: Double,
@@ -238,6 +327,10 @@ class LifeOSRepository(private val database: AppDatabase) {
         return id
     }
 
+    suspend fun updateExpense(expense: ExpenseEntity) {
+        expenseDao.updateExpense(expense)
+    }
+
     suspend fun deleteExpense(expense: ExpenseEntity) {
         expenseDao.deleteExpense(expense)
     }
@@ -246,6 +339,7 @@ class LifeOSRepository(private val database: AppDatabase) {
     fun getAllDiaries(): Flow<List<DiaryEntity>> = diaryDao.getAllDiaries()
     suspend fun getDiaryForToday(): DiaryEntity? = diaryDao.getDiaryForDate(getTodayDate())
     suspend fun getDiaryForDate(date: String): DiaryEntity? = diaryDao.getDiaryForDate(date)
+    suspend fun getDiaryById(id: Long): DiaryEntity? = diaryDao.getDiaryById(id)
 
     suspend fun saveDiary(
         title: String,
@@ -292,12 +386,17 @@ class LifeOSRepository(private val database: AppDatabase) {
         return id
     }
 
+    suspend fun updateDiary(diary: DiaryEntity) {
+        diaryDao.updateDiary(diary)
+    }
+
     suspend fun deleteDiary(diary: DiaryEntity) {
         diaryDao.deleteDiary(diary)
     }
 
     // --- CAPTURES ---
     fun getAllCaptures(): Flow<List<CaptureEntity>> = captureDao.getAllCaptures()
+    suspend fun getCaptureById(id: Long): CaptureEntity? = captureDao.getCaptureById(id)
 
     suspend fun saveCapture(
         type: CaptureType,
@@ -333,13 +432,23 @@ class LifeOSRepository(private val database: AppDatabase) {
         return id
     }
 
+    suspend fun updateCapture(capture: CaptureEntity) {
+        captureDao.updateCapture(capture)
+    }
+
     suspend fun deleteCapture(capture: CaptureEntity) {
+        if (capture.mediaUri.isNotEmpty()) {
+            com.example.util.MediaStorageHelper.deleteFile(capture.mediaUri)
+        }
         captureDao.deleteCapture(capture)
     }
 
     // --- TIMELINE & CALENDAR ---
     fun getAllLifeEvents(): Flow<List<LifeEventEntity>> = lifeEventDao.getAllEvents()
     fun getLifeEventsForDate(date: String): Flow<List<LifeEventEntity>> = lifeEventDao.getEventsForDate(date)
+    suspend fun deleteLifeEvent(event: LifeEventEntity) {
+        lifeEventDao.deleteEvent(event)
+    }
 
     // --- GLOBAL SEARCH ---
     suspend fun performGlobalSearch(query: String): GlobalSearchResult {

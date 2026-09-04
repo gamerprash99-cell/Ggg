@@ -35,6 +35,7 @@ data class TaskEntity(
     val completedAt: Long? = null,
     val isRecurring: Boolean = false,
     val repeatPattern: String = "None",
+    val reminderTime: String = "", // HH:MM format
     val createdAt: Long = System.currentTimeMillis()
 )
 
@@ -48,6 +49,8 @@ data class HabitEntity(
     val targetDaysPerWeek: Int = 7,
     val currentStreak: Int = 0,
     val bestStreak: Int = 0,
+    val reminderTime: String = "", // HH:MM format
+    val reminderDays: String = "Every day", // E.g. "Every day", "Weekdays"
     val createdAt: Long = System.currentTimeMillis()
 )
 

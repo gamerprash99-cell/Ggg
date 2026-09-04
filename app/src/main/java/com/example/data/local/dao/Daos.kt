@@ -57,6 +57,9 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE isCompleted = 0 ORDER BY dueDate ASC, priority DESC")
     fun getPendingTasks(): Flow<List<TaskEntity>>
 
+    @Query("SELECT * FROM tasks WHERE id = :id LIMIT 1")
+    suspend fun getTaskById(id: Long): TaskEntity?
+
     @Query("SELECT * FROM tasks WHERE title LIKE '%' || :query || '%' OR description LIKE '%' || :query || '%'")
     fun searchTasks(query: String): Flow<List<TaskEntity>>
 
@@ -117,6 +120,9 @@ interface ExpenseDao {
     @Query("SELECT * FROM expenses ORDER BY date DESC, createdAt DESC")
     fun getAllExpenses(): Flow<List<ExpenseEntity>>
 
+    @Query("SELECT * FROM expenses WHERE id = :id LIMIT 1")
+    suspend fun getExpenseById(id: Long): ExpenseEntity?
+
     @Query("SELECT * FROM expenses WHERE date = :date ORDER BY createdAt DESC")
     fun getExpensesForDate(date: String): Flow<List<ExpenseEntity>>
 
@@ -129,14 +135,23 @@ interface ExpenseDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertExpense(expense: ExpenseEntity): Long
 
+    @Update
+    suspend fun updateExpense(expense: ExpenseEntity)
+
     @Delete
     suspend fun deleteExpense(expense: ExpenseEntity)
+
+    @Query("DELETE FROM expenses WHERE id = :id")
+    suspend fun deleteExpenseById(id: Long)
 }
 
 @Dao
 interface DiaryDao {
     @Query("SELECT * FROM diaries ORDER BY date DESC, createdAt DESC")
     fun getAllDiaries(): Flow<List<DiaryEntity>>
+
+    @Query("SELECT * FROM diaries WHERE id = :id LIMIT 1")
+    suspend fun getDiaryById(id: Long): DiaryEntity?
 
     @Query("SELECT * FROM diaries WHERE date = :date LIMIT 1")
     suspend fun getDiaryForDate(date: String): DiaryEntity?
@@ -152,12 +167,18 @@ interface DiaryDao {
 
     @Delete
     suspend fun deleteDiary(diary: DiaryEntity)
+
+    @Query("DELETE FROM diaries WHERE id = :id")
+    suspend fun deleteDiaryById(id: Long)
 }
 
 @Dao
 interface CaptureDao {
     @Query("SELECT * FROM captures ORDER BY timestamp DESC")
     fun getAllCaptures(): Flow<List<CaptureEntity>>
+
+    @Query("SELECT * FROM captures WHERE id = :id LIMIT 1")
+    suspend fun getCaptureById(id: Long): CaptureEntity?
 
     @Query("SELECT * FROM captures WHERE date = :date ORDER BY timestamp DESC")
     fun getCapturesForDate(date: String): Flow<List<CaptureEntity>>
@@ -168,14 +189,23 @@ interface CaptureDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCapture(capture: CaptureEntity): Long
 
+    @Update
+    suspend fun updateCapture(capture: CaptureEntity)
+
     @Delete
     suspend fun deleteCapture(capture: CaptureEntity)
+
+    @Query("DELETE FROM captures WHERE id = :id")
+    suspend fun deleteCaptureById(id: Long)
 }
 
 @Dao
 interface LifeEventDao {
     @Query("SELECT * FROM life_events ORDER BY timestamp DESC")
     fun getAllEvents(): Flow<List<LifeEventEntity>>
+
+    @Query("SELECT * FROM life_events WHERE id = :id LIMIT 1")
+    suspend fun getEventById(id: Long): LifeEventEntity?
 
     @Query("SELECT * FROM life_events WHERE date = :date ORDER BY timestamp DESC")
     fun getEventsForDate(date: String): Flow<List<LifeEventEntity>>
@@ -185,6 +215,9 @@ interface LifeEventDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertEvent(event: LifeEventEntity): Long
+
+    @Update
+    suspend fun updateEvent(event: LifeEventEntity)
 
     @Delete
     suspend fun deleteEvent(event: LifeEventEntity)

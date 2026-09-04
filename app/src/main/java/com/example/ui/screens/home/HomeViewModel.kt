@@ -110,6 +110,31 @@ class HomeViewModel(
         }
     }
 
+    fun updateTask(context: android.content.Context, task: TaskEntity) {
+        viewModelScope.launch {
+            repository.updateTask(task)
+            if (task.reminderTime.isNotBlank() && !task.isCompleted) {
+                val parts = task.reminderTime.split(":")
+                if (parts.size == 2) {
+                    val h = parts[0].toIntOrNull() ?: 0
+                    val m = parts[1].toIntOrNull() ?: 0
+                    com.example.util.NotificationHelper.scheduleReminder(
+                        context, h, m, "LifeOS Task: ${task.title}", task.description.ifEmpty { "Time to focus on this task." }, task.id.toInt()
+                    )
+                }
+            } else {
+                 com.example.util.NotificationHelper.cancelReminder(context, task.id.toInt())
+            }
+        }
+    }
+
+    fun deleteTask(context: android.content.Context, task: TaskEntity) {
+        viewModelScope.launch {
+            com.example.util.NotificationHelper.cancelReminder(context, task.id.toInt())
+            repository.deleteTask(task)
+        }
+    }
+
     fun updateSearchQuery(query: String) {
         _searchQuery.value = query
         if (query.isBlank()) {

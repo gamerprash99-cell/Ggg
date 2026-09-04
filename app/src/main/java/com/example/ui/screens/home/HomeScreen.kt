@@ -22,10 +22,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
@@ -39,6 +43,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -75,11 +80,14 @@ fun HomeScreen(
     onNavigateToLife: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val searchResult by viewModel.searchResult.collectAsStateWithLifecycle()
 
     var quickTaskTitle by remember { mutableStateOf("") }
+    var editingTask by remember { mutableStateOf<TaskEntity?>(null) }
+    var deletingTask by remember { mutableStateOf<TaskEntity?>(null) }
 
     LazyColumn(
         modifier = modifier
@@ -525,7 +533,9 @@ fun HomeScreen(
             items(state.tasks) { task ->
                 TaskItemCard(
                     task = task,
-                    onToggle = { viewModel.toggleTask(task) }
+                    onToggle = { viewModel.toggleTask(task) },
+                    onEdit = { editingTask = task },
+                    onDelete = { deletingTask = task }
                 )
             }
         }
@@ -649,6 +659,113 @@ fun HomeScreen(
             Spacer(modifier = Modifier.height(24.dp))
         }
     }
+
+    // Edit Task Dialog
+    if (editingTask != null) {
+        val t = editingTask!!
+        var editTitle by remember(t) { mutableStateOf(t.title) }
+        var editDesc by remember(t) { mutableStateOf(t.description) }
+        var editPriority by remember(t) { mutableStateOf(t.priority) }
+        var editReminder by remember(t) { mutableStateOf(t.reminderTime) }
+
+        AlertDialog(
+            onDismissRequest = { editingTask = null },
+            title = { Text("Edit Task") },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = editTitle,
+                        onValueChange = { editTitle = it },
+                        label = { Text("Task Title") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = editDesc,
+                        onValueChange = { editDesc = it },
+                        label = { Text("Notes / Details") },
+                        maxLines = 3,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = editReminder,
+                        onValueChange = { editReminder = it },
+                        label = { Text("Reminder Time (HH:MM)") },
+                        placeholder = { Text("e.g. 09:30 or 14:00") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Priority:", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Priority.values().forEach { prio ->
+                            val isSel = editPriority == prio
+                            Surface(
+                                color = if (isSel) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.clickable { editPriority = prio }
+                            ) {
+                                Text(
+                                    text = prio.name,
+                                    fontSize = 11.sp,
+                                    fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (editTitle.isNotBlank()) {
+                            viewModel.updateTask(
+                                context,
+                                t.copy(
+                                    title = editTitle.trim(),
+                                    description = editDesc.trim(),
+                                    priority = editPriority,
+                                    reminderTime = editReminder.trim()
+                                )
+                            )
+                            editingTask = null
+                        }
+                    }
+                ) {
+                    Text("Save Changes")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { editingTask = null }) { Text("Cancel") }
+            }
+        )
+    }
+
+    // Delete Task Dialog
+    if (deletingTask != null) {
+        AlertDialog(
+            onDismissRequest = { deletingTask = null },
+            title = { Text("Delete Task?") },
+            text = { Text("Are you sure you want to delete '${deletingTask!!.title}'?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteTask(context, deletingTask!!)
+                        deletingTask = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AccentPink)
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { deletingTask = null }) { Text("Cancel") }
+            }
+        )
+    }
 }
 
 @Composable
@@ -680,7 +797,7 @@ fun HabitItemCard(
                         color = MaterialTheme.colorScheme.onBackground
                     )
                     Text(
-                        text = "Streak: 🔥 ${habit.currentStreak} Days",
+                        text = "Streak: 🔥 ${habit.currentStreak} ${if (habit.currentStreak == 1) "day" else "days"}",
                         fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -712,7 +829,9 @@ fun HabitItemCard(
 @Composable
 fun TaskItemCard(
     task: TaskEntity,
-    onToggle: () -> Unit
+    onToggle: () -> Unit,
+    onEdit: (() -> Unit)? = null,
+    onDelete: (() -> Unit)? = null
 ) {
     GlassCard(
         modifier = Modifier.fillMaxWidth(),
@@ -762,6 +881,16 @@ fun TaskItemCard(
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                     )
+                }
+            }
+            if (onEdit != null) {
+                IconButton(onClick = onEdit, modifier = Modifier.size(32.dp)) {
+                    Icon(Icons.Default.Edit, contentDescription = "Edit Task", tint = PrimaryIndigo, modifier = Modifier.size(16.dp))
+                }
+            }
+            if (onDelete != null) {
+                IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
+                    Icon(Icons.Default.Delete, contentDescription = "Delete Task", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                 }
             }
         }

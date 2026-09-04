@@ -1,7 +1,12 @@
 package com.example.ui.screens.life
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,12 +30,17 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
@@ -40,6 +50,7 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.ScrollableTabRow
@@ -49,6 +60,7 @@ import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -57,6 +69,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -65,6 +78,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.local.entity.DiaryEntity
 import com.example.data.local.entity.ExpenseEntity
 import com.example.data.local.entity.HabitEntity
+import com.example.data.local.entity.HabitLogEntity
 import com.example.data.local.entity.LifeEventEntity
 import com.example.domain.model.ExpenseCategory
 import com.example.domain.model.LifeEventType
@@ -88,7 +102,12 @@ fun LifeHubScreen(
     viewModel: LifeViewModel,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+    LaunchedEffect(Unit) {
+        viewModel.initPinLock(context)
+    }
 
     val tabs = listOf(
         "⏱️ Timeline",
@@ -117,10 +136,10 @@ fun LifeHubScreen(
             Column {
                 Text(
                     text = "LIFE HUB",
-                    fontSize = 13.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary,
-                    letterSpacing = 1.sp
+                    letterSpacing = 1.2.sp
                 )
                 Text(
                     text = "Personal Operating Center",
@@ -178,40 +197,52 @@ fun LifeHubScreen(
                 .padding(horizontal = 16.dp)
         ) {
             when (state.selectedTab) {
-                0 -> TimelineTabContent(events = state.timelineEvents)
+                0 -> TimelineTabContent(
+                    events = state.timelineEvents,
+                    onDeleteEvent = { viewModel.deleteTimelineEvent(it) }
+                )
                 1 -> CalendarTabContent(
                     selectedDate = state.selectedCalendarDate,
                     events = state.calendarEvents,
-                    onSelectDate = { viewModel.selectCalendarDate(it) }
+                    onSelectDate = { viewModel.selectCalendarDate(it) },
+                    onDeleteEvent = { viewModel.deleteTimelineEvent(it) }
                 )
                 2 -> DiaryTabContent(
                     diaries = state.diaries,
-                    onSaveDiary = { title, content, mood, tags ->
-                        viewModel.saveDiary(title, content, mood, tags)
+                    onSaveDiary = { title, content, mood, tags, date ->
+                        viewModel.saveDiary(title, content, mood, tags, date)
                     },
+                    onUpdateDiary = { viewModel.updateDiary(it) },
+                    onDeleteDiary = { viewModel.deleteDiary(it) },
                     onRefineWithAI = { raw, callback ->
                         viewModel.refineDiaryWithAI(raw, callback)
                     }
                 )
                 3 -> ExpensesTabContent(
                     expenses = state.expenses,
-                    onAddExpense = { amt, cat, note, method ->
-                        viewModel.addExpense(amt, cat, note, method)
+                    onAddExpense = { amt, cat, note, method, date ->
+                        viewModel.addExpense(amt, cat, note, method, date)
                     },
+                    onUpdateExpense = { viewModel.updateExpense(it) },
                     onDelete = { viewModel.deleteExpense(it) }
                 )
                 4 -> HabitsTabContent(
                     habits = state.habits,
                     habitLogs = state.habitLogs,
                     onToggle = { viewModel.toggleHabit(it) },
-                    onAdd = { title, icon, cat -> viewModel.addHabit(title, icon, cat) }
+                    onAdd = { title, icon, cat, freq, targetDays, remTime, remDays ->
+                        viewModel.addHabit(context, title, icon, cat, freq, targetDays, remTime, remDays)
+                    },
+                    onUpdate = { viewModel.updateHabit(context, it) },
+                    onDelete = { viewModel.deleteHabit(context, it) }
                 )
                 5 -> AIAssistantTabContent(
                     messages = state.aiChatMessages,
                     permissions = state.aiPermissions,
                     isLoading = state.isAILoading,
                     onSendMessage = { viewModel.sendAIMessage(it) },
-                    onTogglePermission = { type, allowed -> viewModel.updateAIPermission(type, allowed) }
+                    onTogglePermission = { type, allowed -> viewModel.updateAIPermission(type, allowed) },
+                    onClearChat = { viewModel.clearAIChat() }
                 )
                 6 -> BackupPrivacyTabContent(
                     backupJson = state.backupJsonString,
@@ -219,7 +250,8 @@ fun LifeHubScreen(
                     isPinEnabled = state.isPinLockEnabled,
                     onGenerateBackup = { viewModel.generateBackup() },
                     onRestore = { viewModel.restoreBackup(it) },
-                    onTogglePin = { viewModel.togglePinLock() }
+                    onTogglePin = { viewModel.togglePinLock(context) },
+                    onSetPin = { pin -> viewModel.setPin(context, pin) }
                 )
             }
         }
@@ -230,34 +262,132 @@ fun LifeHubScreen(
 // 1. TIMELINE TAB
 // -------------------------------------------------------------
 @Composable
-fun TimelineTabContent(events: List<LifeEventEntity>) {
-    if (events.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("No timeline events yet. Add notes, habits, or expenses!", color = MaterialTheme.colorScheme.onSurfaceVariant)
+fun TimelineTabContent(
+    events: List<LifeEventEntity>,
+    onDeleteEvent: (LifeEventEntity) -> Unit
+) {
+    var selectedFilter by remember { mutableStateOf<LifeEventType?>(null) }
+    var viewingEvent by remember { mutableStateOf<LifeEventEntity?>(null) }
+
+    val filterOptions = listOf(
+        Pair(null, "All"),
+        Pair(LifeEventType.NOTE_CREATED, "📝 Notes"),
+        Pair(LifeEventType.TASK_COMPLETED, "✅ Tasks"),
+        Pair(LifeEventType.HABIT_COMPLETED, "🔥 Habits"),
+        Pair(LifeEventType.EXPENSE_RECORDED, "💸 Expenses"),
+        Pair(LifeEventType.DIARY_CREATED, "📔 Diary"),
+        Pair(LifeEventType.CAPTURE_SAVED, "📸 Captures")
+    )
+
+    val filteredEvents = remember(events, selectedFilter) {
+        if (selectedFilter == null) events else events.filter { it.type == selectedFilter }
+    }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        item {
+            Text(
+                text = "Chronological record of your notes, habits, expenses, and diary memories.",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                items(filterOptions) { (type, label) ->
+                    val isSelected = selectedFilter == type
+                    Surface(
+                        color = if (isSelected) PrimaryIndigo.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant,
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            if (isSelected) PrimaryIndigo else MaterialTheme.colorScheme.outlineVariant
+                        ),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.clickable { selectedFilter = type }
+                    ) {
+                        Text(
+                            text = label,
+                            fontSize = 11.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                            color = if (isSelected) PrimaryIndigo else MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                        )
+                    }
+                }
+            }
         }
-    } else {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
+
+        if (filteredEvents.isEmpty()) {
             item {
-                Text(
-                    text = "A continuous chronological record of your notes, completed tasks, habits, expenses, and diary memories.",
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                Box(modifier = Modifier.fillMaxWidth().padding(top = 40.dp), contentAlignment = Alignment.Center) {
+                    Text("No timeline events found for this filter.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        } else {
+            items(filteredEvents) { event ->
+                LifeTimelineCard(
+                    event = event,
+                    onClick = { viewingEvent = event }
                 )
-                Spacer(modifier = Modifier.height(4.dp))
             }
-            items(events) { event ->
-                LifeTimelineCard(event = event)
-            }
-            item { Spacer(modifier = Modifier.height(80.dp)) }
         }
+
+        item { Spacer(modifier = Modifier.height(80.dp)) }
+    }
+
+    // Detail / Delete Dialog
+    if (viewingEvent != null) {
+        val ev = viewingEvent!!
+        AlertDialog(
+            onDismissRequest = { viewingEvent = null },
+            title = { Text(ev.title, fontWeight = FontWeight.Bold, fontSize = 16.sp) },
+            text = {
+                Column {
+                    Text(
+                        text = "Date: ${ev.date} • Type: ${ev.type.name.lowercase().replaceFirstChar { it.uppercase() }}",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (ev.mood != null) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(text = "Mood: ${ev.mood.emoji} ${ev.mood.label}", fontSize = 12.sp)
+                    }
+                    if (ev.tags.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(text = "Tags: ${ev.tags}", fontSize = 12.sp, color = AccentCyan)
+                    }
+                    if (ev.description.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text(text = ev.description, fontSize = 13.sp)
+                    }
+                }
+            },
+            confirmButton = {
+                Button(onClick = { viewingEvent = null }) {
+                    Text("Close")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        onDeleteEvent(ev)
+                        viewingEvent = null
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = AccentPink)
+                ) {
+                    Text("Delete Event")
+                }
+            }
+        )
     }
 }
 
 @Composable
-fun LifeTimelineCard(event: LifeEventEntity) {
+fun LifeTimelineCard(
+    event: LifeEventEntity,
+    onClick: (() -> Unit)? = null
+) {
     val (icon, color) = when (event.type) {
         LifeEventType.NOTE_CREATED -> Pair("📝", AccentCyan)
         LifeEventType.TASK_COMPLETED -> Pair("✅", AccentEmerald)
@@ -267,7 +397,10 @@ fun LifeTimelineCard(event: LifeEventEntity) {
         LifeEventType.CAPTURE_SAVED -> Pair("📸", PrimaryIndigo)
     }
 
-    GlassCard(modifier = Modifier.fillMaxWidth()) {
+    GlassCard(
+        modifier = Modifier.fillMaxWidth(),
+        onClick = onClick ?: {}
+    ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -321,9 +454,9 @@ fun LifeTimelineCard(event: LifeEventEntity) {
 fun CalendarTabContent(
     selectedDate: String,
     events: List<LifeEventEntity>,
-    onSelectDate: (String) -> Unit
+    onSelectDate: (String) -> Unit,
+    onDeleteEvent: (LifeEventEntity) -> Unit
 ) {
-    // Generate dates for the current week / month
     val cal = Calendar.getInstance()
     val format = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
     val dayFormat = SimpleDateFormat("EEE", Locale.getDefault())
@@ -331,8 +464,8 @@ fun CalendarTabContent(
 
     val days = remember {
         val list = mutableListOf<Triple<String, String, String>>()
-        cal.add(Calendar.DAY_OF_MONTH, -3)
-        for (i in 0..14) {
+        cal.add(Calendar.DAY_OF_MONTH, -7)
+        for (i in 0..21) {
             val d = cal.time
             list.add(Triple(format.format(d), dayFormat.format(d), dateNumFormat.format(d)))
             cal.add(Calendar.DAY_OF_MONTH, 1)
@@ -410,12 +543,14 @@ fun CalendarTabContent(
 }
 
 // -------------------------------------------------------------
-// 3. DIARY TAB (with AI Diary transformation)
+// 3. DIARY TAB
 // -------------------------------------------------------------
 @Composable
 fun DiaryTabContent(
     diaries: List<DiaryEntity>,
-    onSaveDiary: (String, String, Mood, String) -> Unit,
+    onSaveDiary: (String, String, Mood, String, String) -> Unit,
+    onUpdateDiary: (DiaryEntity) -> Unit,
+    onDeleteDiary: (DiaryEntity) -> Unit,
     onRefineWithAI: (String, (String, String, Mood, String) -> Unit) -> Unit
 ) {
     var title by remember { mutableStateOf("") }
@@ -424,6 +559,9 @@ fun DiaryTabContent(
     var tags by remember { mutableStateOf("#daily") }
     var showAIHelper by remember { mutableStateOf(false) }
     var rawPoints by remember { mutableStateOf("") }
+
+    var editingDiary by remember { mutableStateOf<DiaryEntity?>(null) }
+    var deletingDiary by remember { mutableStateOf<DiaryEntity?>(null) }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -441,7 +579,7 @@ fun DiaryTabContent(
                         Text("Write Today's Diary 📔", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                         Button(
                             onClick = { showAIHelper = true },
-                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = PrimaryIndigo.copy(alpha = 0.2f)),
+                            colors = ButtonDefaults.buttonColors(containerColor = PrimaryIndigo.copy(alpha = 0.2f)),
                             shape = RoundedCornerShape(10.dp)
                         ) {
                             Text("✨ AI Helper", color = PrimaryIndigo, fontSize = 12.sp, fontWeight = FontWeight.Bold)
@@ -488,6 +626,16 @@ fun DiaryTabContent(
                         }
                     }
 
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = tags,
+                        onValueChange = { tags = it },
+                        placeholder = { Text("Tags (e.g. #daily, #reflection)...") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
                     Spacer(modifier = Modifier.height(12.dp))
                     Button(
                         onClick = {
@@ -496,7 +644,8 @@ fun DiaryTabContent(
                                     title.ifBlank { "Daily Reflection" },
                                     content,
                                     selectedMood,
-                                    tags
+                                    tags,
+                                    SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
                                 )
                                 title = ""
                                 content = ""
@@ -520,14 +669,24 @@ fun DiaryTabContent(
                 Column(modifier = Modifier.padding(16.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
                             text = "${diary.mood.emoji} ${diary.title}",
                             fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp
+                            fontSize = 15.sp,
+                            modifier = Modifier.weight(1f)
                         )
-                        Text(diary.date, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(diary.date, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            IconButton(onClick = { editingDiary = diary }) {
+                                Icon(Icons.Default.Edit, contentDescription = "Edit", modifier = Modifier.size(16.dp), tint = PrimaryIndigo)
+                            }
+                            IconButton(onClick = { deletingDiary = diary }) {
+                                Icon(Icons.Default.Delete, contentDescription = "Delete", modifier = Modifier.size(16.dp), tint = AccentPink)
+                            }
+                        }
                     }
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(diary.content, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -542,7 +701,7 @@ fun DiaryTabContent(
         item { Spacer(modifier = Modifier.height(80.dp)) }
     }
 
-    // AI Diary Assistant Dialog (Transforms simple points to rich reflection)
+    // AI Helper Dialog
     if (showAIHelper) {
         AlertDialog(
             onDismissRequest = { showAIHelper = false },
@@ -556,7 +715,7 @@ fun DiaryTabContent(
             text = {
                 Column {
                     Text(
-                        "Write simple bullets of what you did (e.g. 'went to college, met friends, finished project, felt relaxed'). LifeOS AI will transform it into an organized narrative with mood & tags!",
+                        "Write simple bullets of what you did. LifeOS AI will transform it into an organized narrative with mood & tags!",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -564,7 +723,7 @@ fun DiaryTabContent(
                     OutlinedTextField(
                         value = rawPoints,
                         onValueChange = { rawPoints = it },
-                        placeholder = { Text("• went to college\n• met friends\n• finished project...") },
+                        placeholder = { Text("• went to gym\n• finished project\n• relaxed in evening...") },
                         maxLines = 4,
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth()
@@ -587,21 +746,104 @@ fun DiaryTabContent(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showAIHelper = false }) {
-                    Text("Cancel")
+                TextButton(onClick = { showAIHelper = false }) { Text("Cancel") }
+            }
+        )
+    }
+
+    // Edit Diary Dialog
+    if (editingDiary != null) {
+        val d = editingDiary!!
+        var editTitle by remember(d) { mutableStateOf(d.title) }
+        var editContent by remember(d) { mutableStateOf(d.content) }
+        var editMood by remember(d) { mutableStateOf(d.mood) }
+        var editTags by remember(d) { mutableStateOf(d.tags) }
+
+        AlertDialog(
+            onDismissRequest = { editingDiary = null },
+            title = { Text("Edit Reflection") },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = editTitle,
+                        onValueChange = { editTitle = it },
+                        label = { Text("Title") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = editContent,
+                        onValueChange = { editContent = it },
+                        label = { Text("Content") },
+                        maxLines = 5,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = editTags,
+                        onValueChange = { editTags = it },
+                        label = { Text("Tags") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onUpdateDiary(
+                            d.copy(
+                                title = editTitle,
+                                content = editContent,
+                                mood = editMood,
+                                tags = editTags
+                            )
+                        )
+                        editingDiary = null
+                    }
+                ) {
+                    Text("Save Changes")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { editingDiary = null }) { Text("Cancel") }
+            }
+        )
+    }
+
+    // Delete Diary Dialog
+    if (deletingDiary != null) {
+        AlertDialog(
+            onDismissRequest = { deletingDiary = null },
+            title = { Text("Delete Reflection?") },
+            text = { Text("Are you sure you want to delete '${deletingDiary!!.title}'? This action cannot be undone.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onDeleteDiary(deletingDiary!!)
+                        deletingDiary = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AccentPink)
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { deletingDiary = null }) { Text("Cancel") }
             }
         )
     }
 }
 
 // -------------------------------------------------------------
-// 4. EXPENSES TAB (Track in Seconds)
+// 4. EXPENSES TAB
 // -------------------------------------------------------------
 @Composable
 fun ExpensesTabContent(
     expenses: List<ExpenseEntity>,
-    onAddExpense: (Double, ExpenseCategory, String, String) -> Unit,
+    onAddExpense: (Double, ExpenseCategory, String, String, String) -> Unit,
+    onUpdateExpense: (ExpenseEntity) -> Unit,
     onDelete: (ExpenseEntity) -> Unit
 ) {
     var amountStr by remember { mutableStateOf("") }
@@ -609,7 +851,11 @@ fun ExpensesTabContent(
     var note by remember { mutableStateOf("") }
     var paymentMethod by remember { mutableStateOf("UPI") }
 
+    var editingExpense by remember { mutableStateOf<ExpenseEntity?>(null) }
+    var deletingExpense by remember { mutableStateOf<ExpenseEntity?>(null) }
+
     val quickAmounts = listOf(50.0, 100.0, 200.0, 500.0, 1000.0)
+    val totalSpending = remember(expenses) { expenses.sumOf { it.amount } }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -621,7 +867,6 @@ fun ExpensesTabContent(
                     Text("Log Expense (Under 3 Seconds ⚡)", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    // Amount input
                     OutlinedTextField(
                         value = amountStr,
                         onValueChange = { amountStr = it },
@@ -632,7 +877,6 @@ fun ExpensesTabContent(
                     )
 
                     Spacer(modifier = Modifier.height(6.dp))
-                    // Quick amount chips
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         items(quickAmounts) { amt ->
                             Surface(
@@ -646,7 +890,6 @@ fun ExpensesTabContent(
                     }
 
                     Spacer(modifier = Modifier.height(10.dp))
-                    // Category selector
                     Text("Category:", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     Spacer(modifier = Modifier.height(4.dp))
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -671,7 +914,7 @@ fun ExpensesTabContent(
                     OutlinedTextField(
                         value = note,
                         onValueChange = { note = it },
-                        placeholder = { Text("Note (e.g. lunch with Rahul, grocery shopping)...") },
+                        placeholder = { Text("Note (e.g. lunch with friends, grocery)...") },
                         singleLine = true,
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth()
@@ -682,7 +925,13 @@ fun ExpensesTabContent(
                         onClick = {
                             val amt = amountStr.toDoubleOrNull() ?: 0.0
                             if (amt > 0) {
-                                onAddExpense(amt, selectedCat, note, paymentMethod)
+                                onAddExpense(
+                                    amt,
+                                    selectedCat,
+                                    note,
+                                    paymentMethod,
+                                    SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+                                )
                                 amountStr = ""
                                 note = ""
                             }
@@ -697,7 +946,19 @@ fun ExpensesTabContent(
         }
 
         item {
-            SectionHeader(title = "EXPENSE LOG (${expenses.size})")
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                SectionHeader(title = "EXPENSE LOG (${expenses.size})")
+                Text(
+                    text = "Total: ₹${String.format(Locale.getDefault(), "%.0f", totalSpending)}",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp,
+                    color = AccentPink
+                )
+            }
         }
 
         items(expenses) { exp ->
@@ -707,7 +968,7 @@ fun ExpensesTabContent(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                         Text(exp.category.icon, fontSize = 22.sp)
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
@@ -730,8 +991,11 @@ fun ExpensesTabContent(
                             fontSize = 16.sp,
                             color = AccentPink
                         )
-                        IconButton(onClick = { onDelete(exp) }) {
-                            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                        IconButton(onClick = { editingExpense = exp }) {
+                            Icon(Icons.Default.Edit, contentDescription = "Edit", tint = PrimaryIndigo, modifier = Modifier.size(16.dp))
+                        }
+                        IconButton(onClick = { deletingExpense = exp }) {
+                            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                         }
                     }
                 }
@@ -739,6 +1003,75 @@ fun ExpensesTabContent(
         }
 
         item { Spacer(modifier = Modifier.height(80.dp)) }
+    }
+
+    // Edit Expense Dialog
+    if (editingExpense != null) {
+        val exp = editingExpense!!
+        var editAmt by remember(exp) { mutableStateOf(exp.amount.toString()) }
+        var editNote by remember(exp) { mutableStateOf(exp.note) }
+        var editCat by remember(exp) { mutableStateOf(exp.category) }
+
+        AlertDialog(
+            onDismissRequest = { editingExpense = null },
+            title = { Text("Edit Expense") },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = editAmt,
+                        onValueChange = { editAmt = it },
+                        label = { Text("Amount (₹)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = editNote,
+                        onValueChange = { editNote = it },
+                        label = { Text("Note") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val parsed = editAmt.toDoubleOrNull() ?: exp.amount
+                        onUpdateExpense(exp.copy(amount = parsed, note = editNote, category = editCat))
+                        editingExpense = null
+                    }
+                ) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { editingExpense = null }) { Text("Cancel") }
+            }
+        )
+    }
+
+    // Delete Expense Dialog
+    if (deletingExpense != null) {
+        AlertDialog(
+            onDismissRequest = { deletingExpense = null },
+            title = { Text("Delete Expense?") },
+            text = { Text("Are you sure you want to delete this ₹${deletingExpense!!.amount} expense?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onDelete(deletingExpense!!)
+                        deletingExpense = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AccentPink)
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { deletingExpense = null }) { Text("Cancel") }
+            }
+        )
     }
 }
 
@@ -748,12 +1081,19 @@ fun ExpensesTabContent(
 @Composable
 fun HabitsTabContent(
     habits: List<HabitEntity>,
-    habitLogs: List<com.example.data.local.entity.HabitLogEntity>,
+    habitLogs: List<HabitLogEntity>,
     onToggle: (HabitEntity) -> Unit,
-    onAdd: (String, String, String) -> Unit
+    onAdd: (String, String, String, String, Int, String, String) -> Unit,
+    onUpdate: (HabitEntity) -> Unit,
+    onDelete: (HabitEntity) -> Unit
 ) {
     var newTitle by remember { mutableStateOf("") }
     var newIcon by remember { mutableStateOf("🔥") }
+    var newReminder by remember { mutableStateOf("") }
+    val availableIcons = listOf("🔥", "📚", "💧", "🧘", "🏃", "💻", "🥗", "💤", "🌿")
+
+    var editingHabit by remember { mutableStateOf<HabitEntity?>(null) }
+    var deletingHabit by remember { mutableStateOf<HabitEntity?>(null) }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -764,6 +1104,26 @@ fun HabitsTabContent(
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text("Add New Habit 🔥", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     Spacer(modifier = Modifier.height(10.dp))
+
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(availableIcons) { icon ->
+                            val isSelected = newIcon == icon
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isSelected) PrimaryIndigo.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant)
+                                    .border(1.dp, if (isSelected) PrimaryIndigo else Color.Transparent, CircleShape)
+                                    .clickable { newIcon = icon },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(icon, fontSize = 18.sp)
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
@@ -776,12 +1136,29 @@ fun HabitsTabContent(
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.weight(1f).testTag("habit_title_input")
                         )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedTextField(
+                            value = newReminder,
+                            onValueChange = { newReminder = it },
+                            placeholder = { Text("Reminder HH:MM") },
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.weight(1f)
+                        )
                         Spacer(modifier = Modifier.width(8.dp))
                         Button(
                             onClick = {
                                 if (newTitle.isNotBlank()) {
-                                    onAdd(newTitle, newIcon, "Daily")
+                                    onAdd(newTitle.trim(), newIcon, "Daily", "Daily", 7, newReminder.trim(), "Every day")
                                     newTitle = ""
+                                    newReminder = ""
                                 }
                             },
                             shape = RoundedCornerShape(12.dp),
@@ -800,14 +1177,155 @@ fun HabitsTabContent(
 
         items(habits) { habit ->
             val isDoneToday = habitLogs.any { it.habitId == habit.id }
-            HabitItemCard(
-                habit = habit,
-                isDone = isDoneToday,
-                onToggle = { onToggle(habit) }
-            )
+            GlassCard(
+                modifier = Modifier.fillMaxWidth(),
+                onClick = { onToggle(habit) },
+                borderColor = if (isDoneToday) AccentEmerald.copy(alpha = 0.4f) else MaterialTheme.colorScheme.outlineVariant
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                        Text(text = habit.icon, fontSize = 20.sp)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                text = habit.title,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 15.sp,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                            Text(
+                                text = "Streak: 🔥 ${habit.currentStreak} ${if (habit.currentStreak == 1) "day" else "days"}",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = { editingHabit = habit }) {
+                            Icon(Icons.Default.Edit, contentDescription = "Edit", tint = PrimaryIndigo, modifier = Modifier.size(16.dp))
+                        }
+                        IconButton(onClick = { deletingHabit = habit }) {
+                            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = AccentPink, modifier = Modifier.size(16.dp))
+                        }
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    if (isDoneToday) AccentEmerald else MaterialTheme.colorScheme.surfaceVariant
+                                )
+                                .clickable { onToggle(habit) }
+                                .testTag("habit_toggle_${habit.id}"),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (isDoneToday) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = "Completed",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         item { Spacer(modifier = Modifier.height(80.dp)) }
+    }
+
+    // Edit Habit Dialog
+    if (editingHabit != null) {
+        val h = editingHabit!!
+        var editTitle by remember(h) { mutableStateOf(h.title) }
+        var editIcon by remember(h) { mutableStateOf(h.icon) }
+        var editReminder by remember(h) { mutableStateOf(h.reminderTime) }
+
+        AlertDialog(
+            onDismissRequest = { editingHabit = null },
+            title = { Text("Edit Habit") },
+            text = {
+                Column {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(availableIcons) { icon ->
+                            val isSelected = editIcon == icon
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isSelected) PrimaryIndigo.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant)
+                                    .border(1.dp, if (isSelected) PrimaryIndigo else Color.Transparent, CircleShape)
+                                    .clickable { editIcon = icon },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(icon, fontSize = 18.sp)
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                    OutlinedTextField(
+                        value = editTitle,
+                        onValueChange = { editTitle = it },
+                        label = { Text("Habit Title") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = editReminder,
+                        onValueChange = { editReminder = it },
+                        label = { Text("Reminder HH:MM") },
+                        placeholder = { Text("e.g. 09:00") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onUpdate(h.copy(title = editTitle, icon = editIcon, reminderTime = editReminder.trim()))
+                        editingHabit = null
+                    }
+                ) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { editingHabit = null }) { Text("Cancel") }
+            }
+        )
+    }
+
+    // Delete Habit Dialog
+    if (deletingHabit != null) {
+        AlertDialog(
+            onDismissRequest = { deletingHabit = null },
+            title = { Text("Delete Habit?") },
+            text = { Text("Are you sure you want to delete '${deletingHabit!!.title}' and its logs?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onDelete(deletingHabit!!)
+                        deletingHabit = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AccentPink)
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { deletingHabit = null }) { Text("Cancel") }
+            }
+        )
     }
 }
 
@@ -820,13 +1338,20 @@ fun AIAssistantTabContent(
     permissions: com.example.domain.model.AIPermissions,
     isLoading: Boolean,
     onSendMessage: (String) -> Unit,
-    onTogglePermission: (String, Boolean) -> Unit
+    onTogglePermission: (String, Boolean) -> Unit,
+    onClearChat: () -> Unit
 ) {
     var prompt by remember { mutableStateOf("") }
     var showPermissions by remember { mutableStateOf(false) }
 
+    val suggestedQuestions = listOf(
+        "What are my priorities today?",
+        "How much did I spend this week?",
+        "Which habits need attention?",
+        "Summarize my recent thoughts"
+    )
+
     Column(modifier = Modifier.fillMaxSize()) {
-        // AI Permissions Toggle Bar
         Surface(
             color = MaterialTheme.colorScheme.surfaceVariant,
             shape = RoundedCornerShape(12.dp),
@@ -842,7 +1367,12 @@ fun AIAssistantTabContent(
                     Spacer(modifier = Modifier.width(6.dp))
                     Text("AI Context Permissions (Privacy Controls)", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
-                Text(if (showPermissions) "Hide" else "Edit", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = onClearChat) {
+                        Text("Clear", fontSize = 11.sp, color = AccentPink)
+                    }
+                    Text(if (showPermissions) "Hide" else "Edit", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
+                }
             }
         }
 
@@ -887,7 +1417,27 @@ fun AIAssistantTabContent(
             }
         }
 
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Suggested prompts
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            items(suggestedQuestions) { q ->
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shape = RoundedCornerShape(50),
+                    modifier = Modifier.clickable { onSendMessage(q) }
+                ) {
+                    Text(
+                        text = q,
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
 
         // Chat messages list
         LazyColumn(
@@ -943,7 +1493,7 @@ fun AIAssistantTabContent(
             OutlinedTextField(
                 value = prompt,
                 onValueChange = { prompt = it },
-                placeholder = { Text("Ask LifeOS AI anything about your life...") },
+                placeholder = { Text("Ask LifeOS AI anything...") },
                 singleLine = true,
                 shape = RoundedCornerShape(14.dp),
                 modifier = Modifier.weight(1f).testTag("ai_chat_input")
@@ -979,10 +1529,14 @@ fun BackupPrivacyTabContent(
     isPinEnabled: Boolean,
     onGenerateBackup: () -> Unit,
     onRestore: (String) -> Unit,
-    onTogglePin: () -> Unit
+    onTogglePin: () -> Unit,
+    onSetPin: (String) -> Unit
 ) {
+    val context = LocalContext.current
     var restoreInput by remember { mutableStateOf("") }
     var showRestoreDialog by remember { mutableStateOf(false) }
+    var showChangePinDialog by remember { mutableStateOf(false) }
+    var newPinInput by remember { mutableStateOf("") }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -1018,6 +1572,18 @@ fun BackupPrivacyTabContent(
                             modifier = Modifier.testTag("app_lock_switch")
                         )
                     }
+
+                    if (isPinEnabled) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        OutlinedButton(
+                            onClick = { showChangePinDialog = true },
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(Icons.Default.Lock, contentDescription = "PIN", modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Change 4-Digit PIN", fontSize = 12.sp)
+                        }
+                    }
                 }
             }
         }
@@ -1028,7 +1594,7 @@ fun BackupPrivacyTabContent(
                     Text("Local Backup & Restore 💾", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        "Export a structured encrypted JSON backup of your notes, tasks, habits, expenses, and diary so you never lose your data.",
+                        "Export a structured JSON backup of your notes, tasks, habits, expenses, and diary so you never lose your data.",
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -1045,7 +1611,7 @@ fun BackupPrivacyTabContent(
                         Button(
                             onClick = { showRestoreDialog = true },
                             shape = RoundedCornerShape(12.dp),
-                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                             modifier = Modifier.weight(1f).testTag("restore_backup_button")
                         ) {
                             Text("Restore Data", color = MaterialTheme.colorScheme.onSurface)
@@ -1056,6 +1622,24 @@ fun BackupPrivacyTabContent(
                         Spacer(modifier = Modifier.height(10.dp))
                         Text(backupMessage, color = AccentEmerald, fontSize = 12.sp, fontWeight = FontWeight.Medium)
                     }
+
+                    if (!backupJson.isNullOrEmpty()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedButton(
+                            onClick = {
+                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                val clip = ClipData.newPlainText("LifeOS Backup", backupJson)
+                                clipboard.setPrimaryClip(clip)
+                                Toast.makeText(context, "Backup JSON copied to clipboard!", Toast.LENGTH_SHORT).show()
+                            },
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.ContentCopy, contentDescription = "Copy", modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Copy Backup JSON to Clipboard")
+                        }
+                    }
                 }
             }
         }
@@ -1063,6 +1647,48 @@ fun BackupPrivacyTabContent(
         item { Spacer(modifier = Modifier.height(80.dp)) }
     }
 
+    // Change PIN Dialog
+    if (showChangePinDialog) {
+        AlertDialog(
+            onDismissRequest = { showChangePinDialog = false },
+            title = { Text("Set 4-Digit Security PIN") },
+            text = {
+                Column {
+                    Text("Enter a new 4-digit PIN for protecting your second brain:", fontSize = 12.sp)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = newPinInput,
+                        onValueChange = { if (it.length <= 4) newPinInput = it.filter { c -> c.isDigit() } },
+                        placeholder = { Text("e.g. 1234") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (newPinInput.length == 4) {
+                            onSetPin(newPinInput)
+                            showChangePinDialog = false
+                            newPinInput = ""
+                            Toast.makeText(context, "New PIN saved!", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(context, "PIN must be exactly 4 digits", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                ) {
+                    Text("Save PIN")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showChangePinDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
+
+    // Restore Dialog
     if (showRestoreDialog) {
         AlertDialog(
             onDismissRequest = { showRestoreDialog = false },

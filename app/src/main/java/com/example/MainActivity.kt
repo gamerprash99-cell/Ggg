@@ -1,9 +1,11 @@
 package com.example
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
+import androidx.fragment.app.FragmentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
@@ -35,7 +37,7 @@ import com.example.ui.screens.notes.NotesScreen
 import com.example.ui.screens.notes.NotesViewModel
 import com.example.ui.theme.LifeOSTheme
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -53,8 +55,24 @@ fun LifeOSMainApp() {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
+    val context = androidx.compose.ui.platform.LocalContext.current
     var showCaptureSheet by remember { mutableStateOf(false) }
-    var isAppUnlocked by remember { mutableStateOf(true) }
+    var isAppUnlocked by remember { mutableStateOf(com.example.util.AppLockManager.isSessionUnlocked(context)) }
+    var showPinFallback by remember { mutableStateOf(false) }
+
+    androidx.compose.runtime.LaunchedEffect(isAppUnlocked) {
+        if (!isAppUnlocked && context is androidx.fragment.app.FragmentActivity) {
+            if (com.example.util.AppLockManager.canAuthenticate(context)) {
+                com.example.util.AppLockManager.showBiometricPrompt(
+                    activity = context,
+                    onSuccess = { isAppUnlocked = true },
+                    onError = { showPinFallback = true }
+                )
+            } else {
+                showPinFallback = true
+            }
+        }
+    }
 
     val homeViewModel: HomeViewModel = viewModel()
     val notesViewModel: NotesViewModel = viewModel()
@@ -138,6 +156,29 @@ fun LifeOSMainApp() {
                 onDismiss = { showCaptureSheet = false },
                 onSaved = {
                     showCaptureSheet = false
+                }
+            )
+        }
+
+        if (!isAppUnlocked) {
+            // Block UI interaction while locked
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(androidx.compose.material3.MaterialTheme.colorScheme.background)
+            ) {}
+        }
+
+        if (!isAppUnlocked && showPinFallback) {
+            AppLockDialog(
+                correctPin = com.example.util.AppLockManager.getPin(context),
+                onUnlock = {
+                    com.example.util.AppLockManager.unlockSession()
+                    isAppUnlocked = true
+                    showPinFallback = false
+                },
+                onDismiss = {
+                    // Do nothing, force user to unlock
                 }
             )
         }

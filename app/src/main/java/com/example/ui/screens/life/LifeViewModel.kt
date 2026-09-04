@@ -147,9 +147,21 @@ class LifeViewModel(
     }
 
     // --- DIARY ACTIONS ---
-    fun saveDiary(title: String, content: String, mood: Mood, tags: String) {
+    fun saveDiary(title: String, content: String, mood: Mood, tags: String, date: String = repository.getTodayDate()) {
         viewModelScope.launch {
-            repository.saveDiary(title, content, mood, tags)
+            repository.saveDiary(title, content, mood, tags, date)
+        }
+    }
+
+    fun updateDiary(diary: DiaryEntity) {
+        viewModelScope.launch {
+            repository.updateDiary(diary)
+        }
+    }
+
+    fun deleteDiary(diary: DiaryEntity) {
+        viewModelScope.launch {
+            repository.deleteDiary(diary)
         }
     }
 
@@ -159,9 +171,15 @@ class LifeViewModel(
     }
 
     // --- EXPENSES ACTIONS ---
-    fun addExpense(amount: Double, category: ExpenseCategory, note: String, paymentMethod: String) {
+    fun addExpense(amount: Double, category: ExpenseCategory, note: String, paymentMethod: String, date: String = repository.getTodayDate()) {
         viewModelScope.launch {
-            repository.addExpense(amount, category, note, paymentMethod)
+            repository.addExpense(amount, category, note, paymentMethod, date = date)
+        }
+    }
+
+    fun updateExpense(expense: ExpenseEntity) {
+        viewModelScope.launch {
+            repository.updateExpense(expense)
         }
     }
 
@@ -178,19 +196,65 @@ class LifeViewModel(
         }
     }
 
-    fun addHabit(title: String, icon: String, category: String) {
+    fun addHabit(context: android.content.Context, title: String, icon: String, category: String, frequency: String = "Daily", targetDays: Int = 7, reminderTime: String = "", reminderDays: String = "Every day") {
         viewModelScope.launch {
-            repository.addHabit(title, icon, category)
+            val id = repository.addHabit(title, icon, category, frequency, targetDays, reminderTime, reminderDays)
+            if (reminderTime.isNotBlank()) {
+                val parts = reminderTime.split(":")
+                if (parts.size == 2) {
+                    val h = parts[0].toIntOrNull() ?: 0
+                    val m = parts[1].toIntOrNull() ?: 0
+                    com.example.util.NotificationHelper.scheduleReminder(
+                        context, h, m, "LifeOS Habit: $title $icon", "It's time for your habit!", id.toInt()
+                    )
+                }
+            }
         }
     }
 
-    fun deleteHabit(habit: HabitEntity) {
+    fun updateHabit(context: android.content.Context, habit: HabitEntity) {
         viewModelScope.launch {
+            repository.updateHabit(habit)
+            if (habit.reminderTime.isNotBlank()) {
+                val parts = habit.reminderTime.split(":")
+                if (parts.size == 2) {
+                    val h = parts[0].toIntOrNull() ?: 0
+                    val m = parts[1].toIntOrNull() ?: 0
+                    com.example.util.NotificationHelper.scheduleReminder(
+                        context, h, m, "LifeOS Habit: ${habit.title} ${habit.icon}", "It's time for your habit!", habit.id.toInt()
+                    )
+                }
+            } else {
+                com.example.util.NotificationHelper.cancelReminder(context, habit.id.toInt())
+            }
+        }
+    }
+
+    fun deleteHabit(context: android.content.Context, habit: HabitEntity) {
+        viewModelScope.launch {
+            com.example.util.NotificationHelper.cancelReminder(context, habit.id.toInt())
             repository.deleteHabit(habit)
         }
     }
 
+    // --- TIMELINE ACTIONS ---
+    fun deleteTimelineEvent(event: LifeEventEntity) {
+        viewModelScope.launch {
+            repository.deleteLifeEvent(event)
+        }
+    }
+
     // --- CENTRAL AI ASSISTANT ---
+    fun clearAIChat() {
+        _aiChatMessages.value = listOf(
+            ChatMessage(
+                sender = "LifeOS AI",
+                message = "Conversation history cleared. How can I help you today?",
+                isUser = false
+            )
+        )
+    }
+
     fun updateAIPermission(permissionType: String, isAllowed: Boolean) {
         val current = _aiPermissions.value
         _aiPermissions.value = when (permissionType) {
@@ -228,18 +292,33 @@ class LifeViewModel(
         viewModelScope.launch {
             val json = repository.exportDataToJson()
             _backupJsonString.value = json
-            _backupMessage.value = "Backup created! Contains ${json.length} bytes of encrypted/structured local data."
+            _backupMessage.value = "Backup created successfully! Ready to export or copy."
         }
     }
 
     fun restoreBackup(jsonStr: String) {
         viewModelScope.launch {
             val success = repository.importDataFromJson(jsonStr)
-            _backupMessage.value = if (success) "Backup restored successfully!" else "Failed to restore backup format."
+            _backupMessage.value = if (success) "Backup restored successfully! All items loaded." else "Failed to parse backup JSON."
         }
     }
 
-    fun togglePinLock() {
-        _isPinLockEnabled.value = !_isPinLockEnabled.value
+    fun initPinLock(context: android.content.Context) {
+        _isPinLockEnabled.value = com.example.util.AppLockManager.isPinEnabled(context)
+    }
+
+    fun togglePinLock(context: android.content.Context, pin: String = "1234") {
+        val newState = !_isPinLockEnabled.value
+        com.example.util.AppLockManager.setPinEnabled(context, newState)
+        if (newState) {
+            com.example.util.AppLockManager.setPin(context, pin)
+        }
+        _isPinLockEnabled.value = newState
+    }
+
+    fun setPin(context: android.content.Context, newPin: String) {
+        com.example.util.AppLockManager.setPin(context, newPin)
+        com.example.util.AppLockManager.setPinEnabled(context, true)
+        _isPinLockEnabled.value = true
     }
 }
