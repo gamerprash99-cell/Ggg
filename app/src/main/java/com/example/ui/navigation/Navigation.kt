@@ -90,7 +90,7 @@ fun LifeOSBottomBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(68.dp)
+                .height(60.dp)
                 .padding(horizontal = 8.dp),
             horizontalArrangement = Arrangement.SpaceAround,
             verticalAlignment = Alignment.CenterVertically
@@ -100,8 +100,8 @@ fun LifeOSBottomBar(
                     // Elevated Vibrant center Capture button
                     Box(
                         modifier = Modifier
-                            .offset(y = (-10).dp)
-                            .size(54.dp)
+                            .offset(y = (-6).dp)
+                            .size(50.dp)
                             .shadow(8.dp, CircleShape)
                             .clip(CircleShape)
                             .background(MaterialTheme.colorScheme.primary)
@@ -117,7 +117,7 @@ fun LifeOSBottomBar(
                             imageVector = Icons.Default.Add,
                             contentDescription = "Quick Capture",
                             tint = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier.size(28.dp)
+                            modifier = Modifier.size(26.dp)
                         )
                     }
                 } else {

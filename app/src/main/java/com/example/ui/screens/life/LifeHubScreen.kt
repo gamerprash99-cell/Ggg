@@ -153,10 +153,12 @@ fun LifeHubScreen(
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text(
-                    text = "Offline First 🛡️",
+                    text = "OFFLINE FIRST 🛡️",
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    softWrap = false,
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                 )
             }
@@ -180,7 +182,10 @@ fun LifeHubScreen(
                         Text(
                             text = tabTitle,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Visible
                         )
                     },
                     modifier = Modifier.testTag("life_tab_$index")
@@ -872,6 +877,7 @@ fun ExpensesTabContent(
                         onValueChange = { amountStr = it },
                         placeholder = { Text("Amount (₹)...", fontSize = 18.sp, fontWeight = FontWeight.Bold) },
                         singleLine = true,
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth().testTag("expense_amount_input")
                     )
@@ -1022,6 +1028,7 @@ fun ExpensesTabContent(
                         onValueChange = { editAmt = it },
                         label = { Text("Amount (₹)") },
                         singleLine = true,
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
                         modifier = Modifier.fillMaxWidth()
                     )
                     Spacer(modifier = Modifier.height(8.dp))
@@ -1087,6 +1094,7 @@ fun HabitsTabContent(
     onUpdate: (HabitEntity) -> Unit,
     onDelete: (HabitEntity) -> Unit
 ) {
+    val context = LocalContext.current
     var newTitle by remember { mutableStateOf("") }
     var newIcon by remember { mutableStateOf("🔥") }
     var newReminder by remember { mutableStateOf("") }
@@ -1140,17 +1148,36 @@ fun HabitsTabContent(
                     
                     Spacer(modifier = Modifier.height(8.dp))
                     
+                    val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                    LaunchedEffect(interactionSource) {
+                        interactionSource.interactions.collect {
+                            if (it is androidx.compose.foundation.interaction.PressInteraction.Release) {
+                                val calendar = java.util.Calendar.getInstance()
+                                android.app.TimePickerDialog(
+                                    context,
+                                    { _, hourOfDay, minute ->
+                                        newReminder = String.format("%02d:%02d", hourOfDay, minute)
+                                    },
+                                    calendar.get(java.util.Calendar.HOUR_OF_DAY),
+                                    calendar.get(java.util.Calendar.MINUTE),
+                                    false
+                                ).show()
+                            }
+                        }
+                    }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         OutlinedTextField(
                             value = newReminder,
-                            onValueChange = { newReminder = it },
-                            placeholder = { Text("Reminder HH:MM") },
+                            onValueChange = { },
+                            readOnly = true,
+                            placeholder = { Text("Set Time (e.g. 08:00)") },
                             singleLine = true,
                             shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f),
+                            interactionSource = interactionSource
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Button(
@@ -1279,13 +1306,32 @@ fun HabitsTabContent(
                         modifier = Modifier.fillMaxWidth()
                     )
                     Spacer(modifier = Modifier.height(8.dp))
+                    val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                    LaunchedEffect(interactionSource) {
+                        interactionSource.interactions.collect {
+                            if (it is androidx.compose.foundation.interaction.PressInteraction.Release) {
+                                val calendar = java.util.Calendar.getInstance()
+                                android.app.TimePickerDialog(
+                                    context,
+                                    { _, hourOfDay, minute ->
+                                        editReminder = String.format("%02d:%02d", hourOfDay, minute)
+                                    },
+                                    calendar.get(java.util.Calendar.HOUR_OF_DAY),
+                                    calendar.get(java.util.Calendar.MINUTE),
+                                    false
+                                ).show()
+                            }
+                        }
+                    }
                     OutlinedTextField(
                         value = editReminder,
-                        onValueChange = { editReminder = it },
+                        onValueChange = { },
+                        readOnly = true,
                         label = { Text("Reminder HH:MM") },
                         placeholder = { Text("e.g. 09:00") },
                         singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        interactionSource = interactionSource
                     )
                 }
             },
@@ -1661,6 +1707,7 @@ fun BackupPrivacyTabContent(
                         onValueChange = { if (it.length <= 4) newPinInput = it.filter { c -> c.isDigit() } },
                         placeholder = { Text("e.g. 1234") },
                         singleLine = true,
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.NumberPassword),
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth()
                     )

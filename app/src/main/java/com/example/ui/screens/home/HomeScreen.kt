@@ -45,6 +45,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -689,13 +690,32 @@ fun HomeScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
                     Spacer(modifier = Modifier.height(8.dp))
+                    val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                    LaunchedEffect(interactionSource) {
+                        interactionSource.interactions.collect {
+                            if (it is androidx.compose.foundation.interaction.PressInteraction.Release) {
+                                val calendar = java.util.Calendar.getInstance()
+                                android.app.TimePickerDialog(
+                                    context,
+                                    { _, hourOfDay, minute ->
+                                        editReminder = String.format("%02d:%02d", hourOfDay, minute)
+                                    },
+                                    calendar.get(java.util.Calendar.HOUR_OF_DAY),
+                                    calendar.get(java.util.Calendar.MINUTE),
+                                    false
+                                ).show()
+                            }
+                        }
+                    }
                     OutlinedTextField(
                         value = editReminder,
-                        onValueChange = { editReminder = it },
+                        onValueChange = { },
+                        readOnly = true,
                         label = { Text("Reminder Time (HH:MM)") },
                         placeholder = { Text("e.g. 09:30 or 14:00") },
                         singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        interactionSource = interactionSource
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text("Priority:", fontSize = 12.sp, fontWeight = FontWeight.Bold)
