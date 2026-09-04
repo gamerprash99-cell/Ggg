@@ -83,7 +83,14 @@ fun LifeOSMainApp() {
         Screen.Home.route,
         Screen.Notes.route,
         Screen.Insights.route,
-        Screen.Life.route
+        Screen.Life.route,
+        Screen.Timeline.route,
+        Screen.Calendar.route,
+        Screen.Diary.route,
+        Screen.Expenses.route,
+        Screen.Habits.route,
+        Screen.AIAssistant.route,
+        Screen.Backup.route
     )
 
     Scaffold(
@@ -95,7 +102,9 @@ fun LifeOSMainApp() {
                     onNavigate = { screen ->
                         if (currentRoute != screen.route) {
                             navController.navigate(screen.route) {
-                                popUpTo(Screen.Home.route) { saveState = true }
+                                popUpTo(navController.graph.startDestinationId) {
+                                    saveState = true
+                                }
                                 launchSingleTop = true
                                 restoreState = true
                             }

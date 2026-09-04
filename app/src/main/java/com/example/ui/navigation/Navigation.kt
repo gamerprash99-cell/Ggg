@@ -55,6 +55,14 @@ sealed class Screen(val route: String, val title: String) {
     object NoteEditor : Screen("note_editor/{noteId}", "Note Editor") {
         fun createRoute(noteId: Long) = "note_editor/$noteId"
     }
+    // Nested Life Hub Destinations
+    object Timeline : Screen("life/timeline", "Timeline")
+    object Calendar : Screen("life/calendar", "Calendar")
+    object Diary : Screen("life/diary", "Diary")
+    object Expenses : Screen("life/expenses", "Expenses")
+    object Habits : Screen("life/habits", "Habits")
+    object AIAssistant : Screen("life/ai", "AI Assistant")
+    object Backup : Screen("life/backup", "Backup & Privacy")
 }
 
 data class NavItem(

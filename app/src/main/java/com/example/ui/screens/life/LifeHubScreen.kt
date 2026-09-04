@@ -30,14 +30,22 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
+import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.Note
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Receipt
+import androidx.compose.material.icons.filled.Repeat
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -110,13 +118,13 @@ fun LifeHubScreen(
     }
 
     val tabs = listOf(
-        "⏱️ Timeline",
-        "📅 Calendar",
-        "📔 Diary",
-        "💸 Expenses",
-        "🔥 Habits",
-        "🤖 AI Assistant",
-        "⚙️ Backup & Privacy"
+        Pair("Timeline", Icons.Default.Timeline),
+        Pair("Calendar", Icons.Default.CalendarMonth),
+        Pair("Diary", Icons.Default.MenuBook),
+        Pair("Expenses", Icons.Default.Receipt),
+        Pair("Habits", Icons.Default.CheckCircle),
+        Pair("AI Assistant", Icons.Default.AutoAwesome),
+        Pair("Backup & Privacy", Icons.Default.Security)
     )
 
     Column(
@@ -173,20 +181,29 @@ fun LifeHubScreen(
             containerColor = Color.Transparent,
             divider = {}
         ) {
-            tabs.forEachIndexed { index, tabTitle ->
+            tabs.forEachIndexed { index, tabInfo ->
                 val isSelected = state.selectedTab == index
                 Tab(
                     selected = isSelected,
                     onClick = { viewModel.selectTab(index) },
                     text = {
-                        Text(
-                            text = tabTitle,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            softWrap = false,
-                            overflow = androidx.compose.ui.text.style.TextOverflow.Visible
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = tabInfo.second,
+                                contentDescription = tabInfo.first,
+                                modifier = Modifier.size(16.dp),
+                                tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = tabInfo.first,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Visible
+                            )
+                        }
                     },
                     modifier = Modifier.testTag("life_tab_$index")
                 )
@@ -276,12 +293,12 @@ fun TimelineTabContent(
 
     val filterOptions = listOf(
         Pair(null, "All"),
-        Pair(LifeEventType.NOTE_CREATED, "📝 Notes"),
-        Pair(LifeEventType.TASK_COMPLETED, "✅ Tasks"),
-        Pair(LifeEventType.HABIT_COMPLETED, "🔥 Habits"),
-        Pair(LifeEventType.EXPENSE_RECORDED, "💸 Expenses"),
-        Pair(LifeEventType.DIARY_CREATED, "📔 Diary"),
-        Pair(LifeEventType.CAPTURE_SAVED, "📸 Captures")
+        Pair(LifeEventType.NOTE_CREATED, "Notes"),
+        Pair(LifeEventType.TASK_COMPLETED, "Tasks"),
+        Pair(LifeEventType.HABIT_COMPLETED, "Habits"),
+        Pair(LifeEventType.EXPENSE_RECORDED, "Expenses"),
+        Pair(LifeEventType.DIARY_CREATED, "Diary"),
+        Pair(LifeEventType.CAPTURE_SAVED, "Captures")
     )
 
     val filteredEvents = remember(events, selectedFilter) {
@@ -393,15 +410,16 @@ fun LifeTimelineCard(
     event: LifeEventEntity,
     onClick: (() -> Unit)? = null
 ) {
-    val (icon, color) = when (event.type) {
-        LifeEventType.NOTE_CREATED -> Pair("📝", AccentCyan)
-        LifeEventType.TASK_COMPLETED -> Pair("✅", AccentEmerald)
-        LifeEventType.HABIT_COMPLETED -> Pair("🔥", Color(0xFFF97316))
-        LifeEventType.EXPENSE_RECORDED -> Pair("💸", AccentPink)
-        LifeEventType.DIARY_CREATED -> Pair("📔", AccentViolet)
-        LifeEventType.CAPTURE_SAVED -> Pair("📸", PrimaryIndigo)
+    val icon: androidx.compose.ui.graphics.vector.ImageVector
+    val color: Color
+    when (event.type) {
+        LifeEventType.NOTE_CREATED -> { icon = Icons.Default.Note; color = AccentCyan }
+        LifeEventType.TASK_COMPLETED -> { icon = Icons.Default.CheckCircle; color = AccentEmerald }
+        LifeEventType.HABIT_COMPLETED -> { icon = Icons.Default.Repeat; color = Color(0xFFF97316) }
+        LifeEventType.EXPENSE_RECORDED -> { icon = Icons.Default.Receipt; color = AccentPink }
+        LifeEventType.DIARY_CREATED -> { icon = Icons.Default.MenuBook; color = AccentViolet }
+        LifeEventType.CAPTURE_SAVED -> { icon = Icons.Default.Image; color = PrimaryIndigo }
     }
-
     GlassCard(
         modifier = Modifier.fillMaxWidth(),
         onClick = onClick ?: {}
@@ -419,7 +437,7 @@ fun LifeTimelineCard(
                     .background(color.copy(alpha = 0.15f)),
                 contentAlignment = Alignment.Center
             ) {
-                Text(icon, fontSize = 18.sp)
+                Icon(imageVector = icon, contentDescription = null, tint = color, modifier = Modifier.size(20.dp))
             }
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
@@ -1103,98 +1121,21 @@ fun HabitsTabContent(
     var editingHabit by remember { mutableStateOf<HabitEntity?>(null) }
     var deletingHabit by remember { mutableStateOf<HabitEntity?>(null) }
 
+    var showAddDialog by remember { mutableStateOf(false) }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         item {
-            GlassCard(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Add New Habit 🔥", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(availableIcons) { icon ->
-                            val isSelected = newIcon == icon
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .background(if (isSelected) PrimaryIndigo.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant)
-                                    .border(1.dp, if (isSelected) PrimaryIndigo else Color.Transparent, CircleShape)
-                                    .clickable { newIcon = icon },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(icon, fontSize = 18.sp)
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        OutlinedTextField(
-                            value = newTitle,
-                            onValueChange = { newTitle = it },
-                            placeholder = { Text("Habit name (e.g. Read 20 pages)...") },
-                            singleLine = true,
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.weight(1f).testTag("habit_title_input")
-                        )
-                    }
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-                    LaunchedEffect(interactionSource) {
-                        interactionSource.interactions.collect {
-                            if (it is androidx.compose.foundation.interaction.PressInteraction.Release) {
-                                val calendar = java.util.Calendar.getInstance()
-                                android.app.TimePickerDialog(
-                                    context,
-                                    { _, hourOfDay, minute ->
-                                        newReminder = String.format("%02d:%02d", hourOfDay, minute)
-                                    },
-                                    calendar.get(java.util.Calendar.HOUR_OF_DAY),
-                                    calendar.get(java.util.Calendar.MINUTE),
-                                    false
-                                ).show()
-                            }
-                        }
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        OutlinedTextField(
-                            value = newReminder,
-                            onValueChange = { },
-                            readOnly = true,
-                            placeholder = { Text("Set Time (e.g. 08:00)") },
-                            singleLine = true,
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.weight(1f),
-                            interactionSource = interactionSource
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Button(
-                            onClick = {
-                                if (newTitle.isNotBlank()) {
-                                    onAdd(newTitle.trim(), newIcon, "Daily", "Daily", 7, newReminder.trim(), "Every day")
-                                    newTitle = ""
-                                    newReminder = ""
-                                }
-                            },
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.testTag("create_habit_button")
-                        ) {
-                            Text("Add")
-                        }
-                    }
-                }
+            Button(
+                onClick = { showAddDialog = true },
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier.fillMaxWidth().height(50.dp)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Add Habit")
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Add Habit")
             }
         }
 
@@ -1267,6 +1208,93 @@ fun HabitsTabContent(
         }
 
         item { Spacer(modifier = Modifier.height(80.dp)) }
+    }
+
+    if (showAddDialog) {
+        val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+        LaunchedEffect(interactionSource) {
+            interactionSource.interactions.collect {
+                if (it is androidx.compose.foundation.interaction.PressInteraction.Release) {
+                    val calendar = java.util.Calendar.getInstance()
+                    android.app.TimePickerDialog(
+                        context,
+                        { _, hourOfDay, minute ->
+                            newReminder = String.format("%02d:%02d", hourOfDay, minute)
+                        },
+                        calendar.get(java.util.Calendar.HOUR_OF_DAY),
+                        calendar.get(java.util.Calendar.MINUTE),
+                        false
+                    ).show()
+                }
+            }
+        }
+
+        AlertDialog(
+            onDismissRequest = { showAddDialog = false },
+            title = { Text("Add Habit") },
+            text = {
+                Column {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(availableIcons) { icon ->
+                            val isSelected = newIcon == icon
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isSelected) PrimaryIndigo.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surfaceVariant)
+                                    .border(1.dp, if (isSelected) PrimaryIndigo else Color.Transparent, CircleShape)
+                                    .clickable { newIcon = icon },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(icon, fontSize = 18.sp)
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                    OutlinedTextField(
+                        value = newTitle,
+                        onValueChange = { newTitle = it },
+                        label = { Text("Habit Title") },
+                        placeholder = { Text("e.g. Read 20 pages") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth().testTag("habit_title_input")
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = newReminder,
+                        onValueChange = { },
+                        readOnly = true,
+                        label = { Text("Reminder (Optional)") },
+                        placeholder = { Text("e.g. 08:00") },
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                        interactionSource = interactionSource
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (newTitle.isNotBlank()) {
+                            onAdd(newTitle.trim(), newIcon, "Daily", "Daily", 7, newReminder.trim(), "Every day")
+                            newTitle = ""
+                            newReminder = ""
+                            showAddDialog = false
+                        }
+                    },
+                    modifier = Modifier.testTag("create_habit_button")
+                ) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 
     // Edit Habit Dialog
